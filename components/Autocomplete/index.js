@@ -2,6 +2,11 @@ import React, {Component, Fragment} from "react";
 import {findNodeHandle, ActivityIndicator, TextInput, View} from "react-native";
 import {string, bool, number, func} from "prop-types";
 import Dropdown from "../Dropdown";
+import React, {Component, Fragment} from "react";
+import React, {Component, Fragment} from "react";
+import {findNodeHandle, ActivityIndicator, TextInput, View} from "react-native";
+import {string, bool, number, func} from "prop-types";
+import Dropdown from "../Dropdown";
 import {capitalizeFirstLetter} from "../../utils/string";
 import {styles} from "./Autocomplete.styles";
 import {get} from "../../utils/api";
@@ -19,6 +24,8 @@ class Autocomplete extends Component {
     };
     this.mounted = false;
     this.timer = null;
+    this.firstTime = true;
+    this.currentItems = [];
     this.dropdown = React.createRef();
     this.container = React.createRef();
     this.setItem = this.setItem.bind(this);
@@ -61,22 +68,28 @@ class Autocomplete extends Component {
 
   async triggerChange() {
     const {inputValue, items} = this.state;
-    const {fetchData, fetchDataUrl, valueExtractor} = this.props;
+    const {fetchData, fetchDataUrl, valueExtractor, data} = this.props;
     if (fetchData) {
+      
       try {
-        const response = await fetchData(inputValue);
-        if (response.length && this.mounted) {
-          this.setState({items: response, loading: false});
-        } else {
-          this.setState({items: [NO_DATA], loading: false});
-        }
-        if (this.dropdown.current) {
-          this.dropdown.current.onPress(this.container);
+        if (this.firstTime){
+          this.firstTime = false;
+          const response = await fetchData(inputValue);
+          if (response.length && this.mounted) {
+            this.setState({items: response, loading: false});
+            this.currentItems = response;
+          } else {
+            this.setState({items: [NO_DATA], loading: false});
+            this.currentItems = [NO_DATA];
+          }
+          if (this.dropdown.current) {
+            this.dropdown.current.onPress(this.container);
+          }
         }
       } catch (error) {
         throw new Error(error);
       }
-    } else if (fetchDataUrl) {
+    } if (fetchDataUrl) {
       try {
         const response = await get(fetchDataUrl, {search: inputValue});
         if (response.length && this.mounted) {
@@ -90,7 +103,28 @@ class Autocomplete extends Component {
       } catch (error) {
         throw new Error(error);
       }
-    } else {
+
+    } if(fetchData){
+      const filteredItems = this.currentItems.filter(item => {
+        return (
+          valueExtractor(item)
+            .toLowerCase()
+            .search(inputValue.toLowerCase()) !== -1
+        );
+      });
+      if (filteredItems.length && this.mounted) {
+        this.setState({items: filteredItems, loading: false});
+        this.currentItems = filteredItems;
+      } else {
+        this.setState({items: [NO_DATA], loading: false});
+        this.currentItems = [NO_DATA];
+        this.firstTime = true;
+      }
+
+      if (this.dropdown.current) {
+        this.dropdown.current.onPress(this.container);
+      }
+    } if(data) {
       const filteredItems = items.filter(item => {
         return (
           valueExtractor(item)
@@ -98,8 +132,8 @@ class Autocomplete extends Component {
             .search(inputValue.toLowerCase()) !== -1
         );
       });
-
       if (filteredItems.length && this.mounted) {
+        console.log(filteredItems)
         await this.promisifySetState({
           filteredItems,
           loading: false,
